@@ -87,6 +87,12 @@ Commits:
 				}
 				tmp.Close()
 
+				beforeStat, err := os.Stat(tmp.Name())
+				if err != nil {
+					fmt.Println("💥 failed to stat temp file:", err)
+					return
+				}
+
 				editor := os.Getenv("EDITOR")
 				if editor == "" {
 					editor = "vi"
@@ -97,6 +103,16 @@ Commits:
 				editorCmd.Stderr = os.Stderr
 				if err = editorCmd.Run(); err != nil {
 					fmt.Println("💥 editor exited with error:", err)
+					return
+				}
+
+				afterStat, err := os.Stat(tmp.Name())
+				if err != nil {
+					fmt.Println("💥 failed to stat temp file:", err)
+					return
+				}
+				if !afterStat.ModTime().After(beforeStat.ModTime()) {
+					fmt.Println("🚫 aborted.")
 					return
 				}
 
