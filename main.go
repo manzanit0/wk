@@ -40,17 +40,22 @@ func main() {
 		Long:  "Create PR for current HEAD",
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("🪄 pushing to remote...")
-			b, err := exec.Command("git", "push", "-u", "origin", "HEAD").CombinedOutput()
-			if err != nil {
-				fmt.Println("💥 failed to push HEAD to remote:", string(b))
-				return
-			}
-
 			var body string
 			if noBody := cmd.Flag("no-body").Value.String(); noBody != "true" {
 				fmt.Println("📖 reading commits...")
-				b, err = exec.Command("git", "log", "origin..HEAD", "--format=%s%n%b").CombinedOutput()
+				var logArgs []string
+				for _, base := range []string{"origin/HEAD", "origin/main", "origin/master"} {
+					out, mergeErr := exec.Command("git", "merge-base", "HEAD", base).CombinedOutput()
+					if mergeErr == nil {
+						mergeBase := strings.TrimSpace(string(out))
+						logArgs = []string{"log", mergeBase + "..HEAD", "--format=%s%n%b"}
+						break
+					}
+				}
+				if logArgs == nil {
+					logArgs = []string{"log", "-10", "HEAD", "--format=%s%n%b"}
+				}
+				b, err := exec.Command("git", logArgs...).CombinedOutput()
 				if err != nil {
 					fmt.Println("💥 failed to read commits:", string(b))
 					return
@@ -101,6 +106,13 @@ Commits:
 					return
 				}
 				body = strings.TrimSpace(string(edited))
+			}
+
+			fmt.Println("🪄 pushing to remote...")
+			b, err := exec.Command("git", "push", "-u", "origin", "HEAD").CombinedOutput()
+			if err != nil {
+				fmt.Println("💥 failed to push HEAD to remote:", string(b))
+				return
 			}
 
 			fmt.Println("🗞  creating pull request...")
